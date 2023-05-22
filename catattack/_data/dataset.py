@@ -48,21 +48,34 @@ class TranslationDataset:
             data = filter(lambda pair: len(pair[1]) < dst_max_length, data)
 
         self.src, self.dst = list(zip(*data))
+        if sentence_length is not None:
+            # Maximum sentence length = length + 2
+            src_max_len = 0
+            dst_max_len = 0
+            for idx in range(len(self.src)):
+                src_max_len = max(src_max_len, len(self.src[idx].split()))
+                dst_max_len = max(dst_max_len, len(self.dst[idx].split()))
+            src_max_len = min(sentence_length, src_max_len+2)
+            dst_max_len = min(sentence_length, dst_max_len+2)
+        else:
+            src_max_len=None
+            dst_max_len=None
 
         # Tokenizers
         self.src_tokenizer.add(self.src).make_tokens()
         self.dst_tokenizer.add(self.dst).make_tokens()
 
         # Tokenize the data
-        self.src_tokenized = self.src_tokenizer.tokenize(self.src, sentence_length=sentence_length, add_sos=True, add_eos=False)
-        self.dst_tokenized = self.dst_tokenizer.tokenize(self.dst, sentence_length=sentence_length, add_sos=False, add_eos=True)
+        self.src_tokenized, self.src_mask = self.src_tokenizer.tokenize(self.src, sentence_length=src_max_len, add_sos=False, add_eos=True)
+        self.dst_tokenized, self.dst_mask = self.dst_tokenizer.tokenize(self.dst, sentence_length=dst_max_len, add_sos=True, add_eos=True)
 
     def __len__(self):
         assert len(self.src) == len(self.dst)
         return len(self.src)
 
     def __getitem__(self, idx):
-        return self.src_tokenized[idx], self.dst_tokenized[idx]
+        return ((self.src_tokenized[idx], self.src_mask[idx]),
+                (self.dst_tokenized[idx], self.dst_mask[idx]))
 
     def split(self, ratio):
         left = TranslationDataset()
@@ -72,7 +85,7 @@ class TranslationDataset:
 
         for direction in ['src', 'dst']:
             # Split
-            for attr in ['', '_raw', '_tokenized']:
+            for attr in ['', '_raw', '_tokenized', '_mask']:
                 attr_name = f'{direction}{attr}'
                 setattr(left, attr_name, getattr(self, attr_name)[:end_idx])
                 setattr(right, attr_name, getattr(self, attr_name)[end_idx:])

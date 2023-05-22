@@ -12,7 +12,7 @@ eng_prefixes = (
 train_set, valid_set = data.get_translation_dataset(
     reverse=False,
     src_valid_prefixes=eng_prefixes,
-    sentence_length=10,
+    sentence_length=None,  # We will use a single sentence per training loop
     split_ratio=0.8)
 
-print(len(train_set))
+model = model.get_rnn_seq2seq()

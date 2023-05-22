@@ -37,31 +37,36 @@ class Lang:
 
     def tokenize(self, sentences: list, sentence_length=None, add_sos=False, add_eos=False):
         # Assume input is a list
-        return Parallel(n_jobs=-1, verbose=1)(delayed(self._tokenize)(sentence, sentence_length, add_sos, add_eos) for sentence in sentences)
+        result = Parallel(n_jobs=-1, verbose=1)(delayed(self._tokenize)(sentence, sentence_length, add_sos, add_eos) for sentence in sentences)
+        return list(zip(*result))  # tokens, masks
 
     def _tokenize(self, sentence, sentence_length=None, add_sos=False, add_eos=False):
         # SOS and EOS don't count towards the sentence length
+        self.mask = []
         if isinstance(sentence, str):
             sentence = utils.normalizeString(sentence)
             sentence = sentence.strip().split()
-            sentence = self._process_string_list(sentence, sentence_length, add_sos, add_eos)
-            return [self.word2idx.get(word, self.reserved_word2idx['<UNK>']) for word in sentence]
+            sentence, mask = self._process_string_list(sentence, sentence_length, add_sos, add_eos)
+            return [self.word2idx.get(word, self.reserved_word2idx['<UNK>']) for word in sentence], mask
         else:
             sentence = [(self.idx2word[idx] if idx < len(self) else self.reserved_idx2word['<UNK>']) for idx in sentence]
-            sentence = self._process_string_list(sentence, sentence_length, add_sos, add_eos)
+            sentence, mask = self._process_string_list(sentence, sentence_length, add_sos, add_eos)
             sentence = ' '.join(sentence)
-            return sentence
+            return sentence, mask
 
     def _process_string_list(self, sentence, length, add_sos, add_eos):
-        if length is not None:
-            sentence = sentence[:length]
-            padding = length - len(sentence)
-            sentence = sentence + ['<PAD>'] * padding
         if add_sos and sentence[0] != '<SOS>':
             sentence = ['<SOS>'] + sentence
         if add_eos and sentence[-1] != '<EOS>':
             sentence.append('<EOS>')
-        return sentence
+        mask = [1] * len(sentence)
+        if length is not None:
+            sentence = sentence[:length]
+            mask = mask[:length]
+            padding = length - len(sentence)
+            sentence.extend(['<PAD>'] * padding)
+            mask.extend([0] * padding)
+        return sentence, mask
 
 
     def cleanup(self, sentences):

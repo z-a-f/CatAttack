@@ -1,6 +1,13 @@
 import random
+try:
+    import cPickle as pkl
+except ImportError:
+    import pickle as pkl
+import zipfile
 
 class TranslationDataset:
+    version = 1  # Version for serialization
+
     def __init__(self,
                  src=None, dst=None,  # Assume that src[idx] and dst[idx] are the same thing
                  src_name=None, dst_name=None,
@@ -15,8 +22,6 @@ class TranslationDataset:
         self.src_name = src_name or 'src'
 
         # Cleanup the sentences
-        # self.src_tokenizer = Lang(name=self.src_name)
-        # self.dst_tokenizer = Lang(name=self.src_name)
         self.src_tokenizer = src_tokenizer
         self.dst_tokenizer = dst_tokenizer
 
@@ -66,16 +71,31 @@ class TranslationDataset:
         self.dst_tokenizer.add(self.dst).make_tokens()
 
         # Tokenize the data
-        self.src_tokenized, self.src_mask = self.src_tokenizer.tokenize(self.src, sentence_length=src_max_len, add_sos=False, add_eos=True)
-        self.dst_tokenized, self.dst_mask = self.dst_tokenizer.tokenize(self.dst, sentence_length=dst_max_len, add_sos=True, add_eos=True)
+        self.retokenize(src_length=src_max_len, dst_length=dst_max_len, sos='dst', eos='both')
+
+    def retokenize(self,
+                   src_length=None, dst_length=None,
+                   sos='both', eos='both'):
+        assert sos in ['both', 'src', 'dst'], f'"sos" must be one of ["both", "src", "dst"], found "{sos}"'
+        assert eos in ['both', 'src', 'dst'], f'"eos" must be one of ["both", "src", "dst"], found "{eos}"'
+        src_sos = (sos in ['both', 'src'])
+        dst_sos = (sos in ['both', 'dst'])
+        src_eos = (eos in ['both', 'src'])
+        dst_eos = (eos in ['both', 'dst'])
+
+        # self.src_tokenized, self.src_mask = self.src_tokenizer.tokenize(self.src, sentence_length=src_length, add_sos=src_sos, add_eos=src_eos)
+        # self.dst_tokenized, self.dst_mask = self.dst_tokenizer.tokenize(self.dst, sentence_length=dst_length, add_sos=dst_sos, add_eos=dst_eos)
+        self.src_tokenized = self.src_tokenizer.tokenize(self.src, sentence_length=src_length, add_sos=src_sos, add_eos=src_eos)
+        self.dst_tokenized = self.dst_tokenizer.tokenize(self.dst, sentence_length=dst_length, add_sos=dst_sos, add_eos=dst_eos)
 
     def __len__(self):
         assert len(self.src) == len(self.dst)
         return len(self.src)
 
     def __getitem__(self, idx):
-        return ((self.src_tokenized[idx], self.src_mask[idx]),
-                (self.dst_tokenized[idx], self.dst_mask[idx]))
+        # return ((self.src_tokenized[idx], self.src_mask[idx]),
+        #         (self.dst_tokenized[idx], self.dst_mask[idx]))
+        return self.src_tokenized[idx], self.dst_tokenized[idx]
 
     def split(self, ratio):
         left = TranslationDataset()
@@ -85,7 +105,7 @@ class TranslationDataset:
 
         for direction in ['src', 'dst']:
             # Split
-            for attr in ['', '_raw', '_tokenized', '_mask']:
+            for attr in ['', '_raw', '_tokenized']:  #, '_mask']:
                 attr_name = f'{direction}{attr}'
                 setattr(left, attr_name, getattr(self, attr_name)[:end_idx])
                 setattr(right, attr_name, getattr(self, attr_name)[end_idx:])
@@ -95,3 +115,47 @@ class TranslationDataset:
                 setattr(left, attr_name, getattr(self, attr_name))
                 setattr(right, attr_name, getattr(self, attr_name))
         return left, right
+
+    def save(self, path):
+        serialized = pkl.dumps(self)
+        with zipfile.ZipFile(path, 'w') as pkl_zip:
+            pkl_zip.writestr('data.pkl', serialized)
+            pkl_zip.writestr('version', str(self.version))
+
+    @classmethod
+    def load(cls, path):
+        pkl_zip = zipfile.ZipFile(path, 'r')
+
+        # Get the version first
+        zip_contents = pkl_zip.namelist()
+        if 'version' in zip_contents:
+            version = int(pkl_zip.read('version'))
+        else:
+            version = 0
+
+        # Recipes for different versions
+        if version == 0:
+            assert 'TranslationDataset' in zip_contents
+        elif version == 1:
+            assert 'data.pkl' in zip_contents
+        else:
+            print(f'===> ERROR: Unknown serialization version {version}.')
+            print(f'            Will try loading all files as pkls...')
+
+        # Load all the files
+        result = []
+        for pkl_file_name in zip_contents:
+            if pkl_file_name in ['version']:
+                continue
+
+            try:
+                serialized = pkl_zip.read(pkl_file_name)
+            except KeyError:
+                print(f'Cannot unzip the file {pkl_file_name}')
+            result.append(pkl.loads(serialized))
+
+        pkl_zip.close()
+
+        if len(result) == 1:
+            return result[0]
+        return result

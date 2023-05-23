@@ -26,13 +26,20 @@ def get_data(name: str, cache_dir='.cache'):
         raise ValueError(f"I don't know dataset {name}. Please choose from {downloader.URLS.keys()}")
     return data
 
-def get_translation_dataset(reverse=False,
+def get_translation_dataset(*,
+                            load_from=None,
+                            reverse=False,
                             src_max_length=None, dst_max_length=None,
                             src_valid_prefixes=None, dst_valid_prefixes=None,
                             sentence_length=None,
-                            split_ratio=None):
-    sentences = get_data('pytorch_tutorial_text')
-    # dataset = data.TranslationDataset(sentences['eng'], sentences['fra'], src_valid_prefixes=eng_prefixes, shuffle=True, sentence_length=10)
+                            split_ratio=None,
+                            cache_dir='.cache'):
+    if load_from is not None:
+        print(f'===> INFO: Loading the translation dataset from {load_from}; ignoring all arguments.')
+        return dataset.TranslationDataset.load(load_from)
+
+    sentences = get_data('pytorch_tutorial_text', cache_dir=cache_dir)
+
     src_name = 'eng'
     dst_name = 'fra'
     if reverse:
@@ -49,7 +56,7 @@ def get_translation_dataset(reverse=False,
         src_valid_prefixes=src_valid_prefixes, dst_valid_prefixes=dst_valid_prefixes,
         src_tokenizer=src_tokenizer, dst_tokenizer=dst_tokenizer,
         shuffle=True,
-        sentence_length=sentence_length
+        sentence_length=sentence_length,
     )
 
     if split_ratio is not None:

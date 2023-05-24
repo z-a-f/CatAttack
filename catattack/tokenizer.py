@@ -38,7 +38,8 @@ class Lang:
     def tokenize(self, sentences: list, sentence_length=None, add_sos=False, add_eos=False):
         # Assume input is a list
         result = Parallel(n_jobs=-1, verbose=1)(delayed(self._tokenize)(sentence, sentence_length, add_sos, add_eos) for sentence in sentences)
-        return list(zip(*result))  # tokens  #, masks
+        # return list(zip(*result))  # tokens, masks
+        return result
 
     def _tokenize(self, sentence, sentence_length=None, add_sos=False, add_eos=False):
         # SOS and EOS don't count towards the sentence length

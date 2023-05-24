@@ -1,15 +1,18 @@
 
+__all__ = [
+    'get_data',
+    'get_translation_dataset',
+    'TranslationDataset',
+]
+
+
 from .tokenizer import Lang
 
 from ._data import downloader
 from ._data import loader
 from ._data import dataset
 
-__all__ = [
-    'get_data',
-    'get_translation_dataset',
-    'TranslationDataset',
-]
+from ._data.dataset import TranslationDataset
 
 
 def get_data(name: str, cache_dir='.cache'):
@@ -49,7 +52,7 @@ def get_translation_dataset(*,
     src_tokenizer = Lang(name=src_name)
     dst_tokenizer = Lang(name=dst_name)
 
-    translation_dataset = dataset.TranslationDataset(
+    translation_dataset = TranslationDataset(
         src=src, dst=dst,  # Assume that src[idx] and dst[idx] are the same thing
         src_name=src_name, dst_name=dst_name,
         src_max_length=src_max_length, dst_max_length=dst_max_length,

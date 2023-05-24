@@ -12,6 +12,9 @@ class EncoderRNN(nn.Module):
         self.gru = nn.GRU(hidden_size, hidden_size)
 
     def forward(self, input, hidden):
+        r"""
+        Input shape:
+        """
         if hidden.device != input.device:
             hidden = hidden.to(input.device)
         embedded = self.embedding(input).view(1, 1, -1)
@@ -44,3 +47,16 @@ class DecoderRNN(nn.Module):
 
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size)
+
+
+# class Seq2SeqWrapper(nn.Module):
+#     def __init__(self, encoder, decoder):
+#         super().__init__()
+#         self.encoder = encoder
+#         self.decoder = decoder
+
+#     def forward_for_training(self, src_input, dst_input):
+#         # Run the encoder first
+
+
+#     def forward(self, src, dst=None)

@@ -25,9 +25,11 @@ class Language:
         self.vocab = Vocabulary()
 
     def build_vocab(self, data, min_freq=None):
+        pass
 
 
-# class Lang:
+class Lang:
+    pass
 #     r"""Language word tokenizer.
 
 #     """

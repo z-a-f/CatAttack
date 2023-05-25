@@ -38,7 +38,6 @@ def get_translation_dataset(*,
                             split_ratio=None,
                             cache_dir='.cache'):
     if load_from is not None:
-        print(f'===> INFO: Loading the translation dataset from {load_from}; ignoring all arguments.')
         return dataset.TranslationDataset.load(load_from)
 
     sentences = get_data('pytorch_tutorial_text', cache_dir=cache_dir)

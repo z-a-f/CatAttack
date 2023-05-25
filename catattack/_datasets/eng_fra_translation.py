@@ -1,27 +1,45 @@
-import torchtext
+import os
+from functools import partial
+from pathlib import Path
 
-print(torchtext.__file__)
-
-import torchtext._internal
-
-from torchtext._internal.module_utils import is_module_available
+import torchdata
 from torchtext.data.datasets_utils import _create_dataset_directory
-from torchtext.data.datasets_utils import _wrap_split_argument
 
 URL = 'https://download.pytorch.org/tutorial/data.zip'
 MD5 = 'fbb3849632b35bc5ecf9e3b033074f6e'
-DATASET_NAME = 'EngFraTranslation'
+DATASET_NAME = 'EngFra'
 
+def _path_fn(root, url):
+    return os.path.join(root, os.path.basename(url))
+
+def _filename_filter_fn(includes, excludes, filename):
+    filename = filename[0].rsplit(os.sep, 1)[1]
+    if includes is not None and filename not in includes:
+        return False
+    if excludes is not None and filename in excludes:
+        return False
+    return True
+
+def _split_line(t):
+    return t.split('\t')
 
 @_create_dataset_directory(dataset_name=DATASET_NAME)
-@_wrap_split_argument(("train", "test"))
-def EngFraTranslation(root, split):
-    if not is_module_available("torchdata"):
-        raise ModuleNotFoundError(
-            "Package `torchdata` not found. Please install following instructions at https://github.com/pytorch/data"
-        )
-
-
-if __name__ == '__main__':
-    datapipe = EngFraTranslation('.cache')
-    print(datapipe)
+def EngFra(root):
+    pipeline = torchdata.datapipes.iter.IterableWrapper([URL]) \
+                .on_disk_cache(
+                    filepath_fn=partial(_path_fn, root),
+                    hash_dict={_path_fn(root, URL): MD5},
+                    hash_type='md5') \
+                .read_from_http() \
+                .end_caching(mode="wb", same_filepath_fn=True) \
+                .open_files(mode='rb') \
+                .load_from_zip() \
+                .filter(partial(_filename_filter_fn,
+                                ['eng-fra.txt'],
+                                None)) \
+                .readlines(decode=True,
+                           encoding='utf-8',
+                           return_path=False,
+                           strip_newline=True) \
+                .map(_split_line)
+    return pipeline
